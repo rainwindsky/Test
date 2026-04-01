@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>指尖拨弦 - 虞山琴韵</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body id="page-music">
+
+<div id="app">
+    <audio id="global-bgm" loop preload="auto">
+        <source src="./audio/Morning_on_the_Ridge.mp3" type="audio/mpeg">
+    </audio>
+    <div id="bgm-btn" class="bgm-btn">🎵</div>
+    <a href="index.html" class="back-btn">← 返回首页</a>
+
+    <div class="content-container guqin-player">
+        <h2>指尖拨弦</h2>
+
+        <div id="guqin-logo" class="guqin-logo">点击抚琴</div>
+
+        <div class="music-info">
+            <p id="music-status">当前未播放</p>
+            <p id="music-desc">选择下方曲目进行试听</p>
+        </div>
+
+        <div class="track-list">
+            <button class="track-btn active" data-track="良宵引" data-desc="入门经典，冲淡平和，最显清微淡远之风">良宵引</button>
+            <button class="track-btn" data-track="平沙落雁" data-desc="意境悠远，借景抒情，描绘秋江雁落之景">平沙落雁</button>
+            <button class="track-btn" data-track="潇湘水云" data-desc="节奏明快，技法丰富，云水奔腾之气势">潇湘水云</button>
+        </div>
+
+        <audio id="bg-audio" preload="auto">
+            <source src="" type="audio/mpeg">
+        </audio>
+    </div>
+</div>
+<script src="js/main.js"></script>
+</body>
+</html>
