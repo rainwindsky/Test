@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>向上吧！马里奥 - 竖屏H5挑战</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+        }
+        #app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: #5c94fc;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .ui-layer {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none;
+        }
+        .overlay-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            z-index: 50;
+        }
+        .hidden { display: none !important; }
+        
+        /* 顶部状态栏 */
+        .hud {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            color: white;
+            text-shadow: 2px 2px 0px #000;
+            z-index: 10;
+        }
+        .score-display { font-size: 32px; font-weight: 900; line-height: 1; text-align: center; width: 100%; margin-top: 10px;}
+        
+        /* 触摸提示区域 */
+        .touch-zone-container {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 50%;
+            display: flex;
+            pointer-events: none;
+            opacity: 0.2;
+            z-index: 5;
+        }
+        .touch-zone {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 20px;
+            font-size: 24px;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui-layer" id="hud-layer">
+        <div class="hud">
+            <div class="score-display"><span id="current-score">0</span>m</div>
+        </div>
+        <div class="touch-zone-container" id="touch-hints">
+            <div class="touch-zone border-r border-white/50">&lt; 触摸左侧</div>
+            <div class="touch-zone border-l border-white/50">触摸右侧 &gt;</div>
+        </div>
+    </div>
+
+    <div id="start-screen" class="overlay-screen">
+        <div class="text-6xl mb-4">🍄</div>
+        <h1 class="text-4xl font-black mb-2 text-white tracking-wider text-center" style="text-shadow: 0 4px 0 #d92525;">向上吧!<br>马里奥</h1>
+        <p class="text-gray-200 mb-8 text-center px-6 font-medium">按住屏幕左右两侧移动<br>挑战极限高度</p>
+        
+        <button id="start-btn" class="bg-gradient-to-b from-[#ff5e5e] to-[#d92525] border-4 border-white text-white px-12 py-4 rounded-full text-2xl font-black shadow-[0_6px_0_#9a0000] active:translate-y-[6px] active:shadow-none transition-all">
+            开始跳跃
+        </button>
+    </div>
+
+    <div id="game-over-screen" class="overlay-screen hidden">
+        <h2 class="text-3xl font-black mb-1 text-red-400 uppercase tracking-widest">Game Over</h2>
+        <div class="text-white text-lg mb-6 text-center">
+            本次到达高度<br>
+            <span id="final-score" class="text-5xl font-black text-yellow-400 drop-shadow-md">0</span> <span class="text-xl">m</span>
+        </div>
+        
+        <div class="w-full max-w-[300px] bg-black/60 rounded-2xl p-5 mb-8 border border-white/20 shadow-2xl">
+            <h3 class="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">🌍 排行榜状态</h3>
+            <ul id="leaderboard-list" class="space-y-3">
+                <li class="flex justify-center text-sm text-gray-300 animate-pulse">正在连接服务器...</li>
+            </ul>
+        </div>
+
+        <button id="restart-btn" class="bg-gradient-to-b from-[#4facfe] to-[#00f2fe] border-4 border-white text-white px-10 py-3 rounded-full text-xl font-black shadow-[0_6px_0_#0084ad] active:translate-y-[6px] active:shadow-none transition-all">
+            再来一局
+        </button>
+    </div>
+</div>
+
+<script type="module">
+    // --- FIREBASE 初始化 (增加本地运行兼容) ---
+    let useFirebase = false;
+    let auth = null;
+    let db = null;
+    let appId = 'vertical-mario-1';
+
+    try {
+        if (typeof __firebase_config !== 'undefined') {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'vertical-mario-1';
+            useFirebase = true;
+        } else {
+            console.log("【运行在本地环境】已开启单机离线模式，排行榜功能被隐藏。");
+        }
+    } catch (e) {
+        console.log("云端数据库初始化跳过");
+    }
+
+    // --- DOM & CANVAS ---
+    const container = document.getElementById('app-container');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width = container.clientWidth;
+    let height = container.clientHeight;
+    
+    const resize = () => {
+        width = container.clientWidth;
+        height = container.clientHeight;
+        canvas.width = width;
+        canvas.height = height;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- GAME ENGINE VARIABLES ---
+    let gameState = 'START'; 
+    let user = null;
+    let score = 0; 
+    let maxScore = 0; 
+    let cameraY = 0;
+    
+    const GRAVITY = 0.4;
+    const JUMP_VELOCITY = -11;
+    const MOVE_SPEED = 6;
+    
+    const input = { left: false, right: false };
+
+    const ASSETS = {
+        player: '🏃',
+        platform: '🟩',
+        platformCloud: '☁️',
+        spring: '🍄'
+    };
+
+    // --- CLASSES ---
+    class Player {
+        constructor() {
+            this.size = 40;
+            this.x = width / 2 - this.size / 2;
+            this.y = height - 150;
+            this.vx = 0;
+            this.vy = 0;
+            this.facingLeft = false;
+        }
+
+        update() {
+            if (input.left) {
+                this.x -= MOVE_SPEED;
+                this.facingLeft = true;
+            } else if (input.right) {
+                this.x += MOVE_SPEED;
+                this.facingLeft = false;
+            }
+
+            if (this.x < -this.size) this.x = width;
+            if (this.x > width) this.x = -this.size;
+
+            this.vy += GRAVITY;
+            this.y += this.vy;
+        }
+
+        jump(powerMultiplier = 1) {
+            this.vy = JUMP_VELOCITY * powerMultiplier;
+        }
+
+        draw() {
+            ctx.save();
+            ctx.font = `${this.size}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            
+            const drawY = this.y - cameraY;
+
+            if (this.facingLeft) {
+                ctx.translate(this.x + this.size / 2, drawY + this.size);
+                ctx.scale(-1, 1);
+                ctx.fillText(ASSETS.player, 0, 0);
+            } else {
+                ctx.fillText(ASSETS.player, this.x + this.size / 2, drawY + this.size);
+            }
+            ctx.restore();
+        }
+    }
+
+    class Platform {
+        constructor(x, y, type = 'normal') {
+            this.x = x;
+            this.y = y;
+            this.width = 70;
+            this.height = 20;
+            this.type = type; 
+            
+            this.movingRight = Math.random() > 0.5;
+            this.speed = 1 + Math.random() * 2;
+        }
+
+        update() {
+            if (this.type === 'moving') {
+                if (this.movingRight) {
+                    this.x += this.speed;
+                    if (this.x + this.width > width) this.movingRight = false;
+                } else {
+                    this.x -= this.speed;
+                    if (this.x < 0) this.movingRight = true;
+                }
+            }
+        }
+
+        draw() {
+            const drawY = this.y - cameraY;
+            if (drawY > height + 50 || drawY < -50) return;
+
+            ctx.save();
+            ctx.font = `24px Arial`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+
+            if (this.type === 'spring') {
+                ctx.fillStyle = '#C04000';
+                ctx.fillRect(this.x, drawY, this.width, this.height);
+                ctx.fillText(ASSETS.spring, this.x + this.width/2 - 12, drawY - 24);
+            } else if (this.type === 'moving') {
+                ctx.fillText(ASSETS.platformCloud, this.x, drawY - 5);
+                ctx.fillText(ASSETS.platformCloud, this.x + 30, drawY - 5);
+            } else {
+                ctx.fillStyle = '#8bc34a'; 
+                ctx.beginPath();
+                ctx.roundRect(this.x, drawY, this.width, this.height, 10);
+                ctx.fill();
+                ctx.strokeStyle = '#558b2f';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+    }
+
+    // --- GAME STATE ---
+    let player;
+    let platforms = [];
+    let basePlatformY = 0; 
+
+    const initGame = () => {
+        player = new Player();
+        platforms = [];
+        cameraY = 0;
+        score = 0;
+        maxScore = 0;
+        document.getElementById('current-score').innerText = '0';
+        
+        platforms.push(new Platform(width / 2 - 35, height - 50, 'normal'));
+        
+        basePlatformY = height - 50;
+        for (let i = 0; i < 15; i++) {
+            generatePlatform();
+        }
+
+        setTimeout(() => {
+            document.getElementById('touch-hints').style.opacity = '0';
+            document.getElementById('touch-hints').style.transition = 'opacity 1s';
+        }, 3000);
+    };
+
+    const generatePlatform = () => {
+        const gap = 50 + Math.random() * 60;
+        basePlatformY -= gap;
+        const x = Math.random() * (width - 70);
+        
+        let type = 'normal';
+        const rand = Math.random();
+        if (score > 100 && rand < 0.2) {
+            type = 'moving';
+        } else if (rand < 0.25) { 
+            type = 'spring';
+        }
+
+        platforms.push(new Platform(x, basePlatformY, type));
+    };
+
+    const update = () => {
+        if (gameState !== 'PLAYING') return;
+
+        player.update();
+
+        if (player.vy > 0) {
+            for (let i = 0; i < platforms.length; i++) {
+                const p = platforms[i];
+                if (player.y + player.size >= p.y && 
+                    player.y + player.size <= p.y + p.height + player.vy &&
+                    player.x + player.size > p.x - 10 && 
+                    player.x < p.x + p.width + 10) {
+                    
+                    player.y = p.y - player.size; 
+                    
+                    if (p.type === 'spring') {
+                        player.jump(1.6); 
+                    } else {
+                        player.jump(1);   
+                    }
+                    break; 
+                }
+            }
+        }
+
+        platforms.forEach(p => p.update());
+
+        if (player.y < cameraY + height / 2) {
+            const diff = (cameraY + height / 2) - player.y;
+            cameraY -= diff; 
+            
+            const currentHeight = Math.floor(Math.abs(cameraY) / 10);
+            if (currentHeight > maxScore) {
+                maxScore = currentHeight;
+                score = maxScore;
+                document.getElementById('current-score').innerText = score;
+                updateBackground(score);
+            }
+        }
+
+        platforms = platforms.filter(p => p.y < cameraY + height + 50);
+        
+        while (basePlatformY > cameraY - height) {
+            generatePlatform();
+        }
+
+        if (player.y > cameraY + height) {
+            gameOver();
+        }
+    };
+
+    const updateBackground = (currentScore) => {
+        const bgLayer = document.getElementById('app-container');
+        if (currentScore < 100) {
+            bgLayer.style.backgroundColor = '#5c94fc'; 
+        } else if (currentScore < 300) {
+            bgLayer.style.backgroundColor = '#2c3e50'; 
+        } else {
+            bgLayer.style.backgroundColor = '#0f0c29'; 
+        }
+    };
+
+    const draw = () => {
+        ctx.clearRect(0, 0, width, height);
+        
+        if (gameState === 'PLAYING') {
+            platforms.forEach(p => p.draw());
+            player.draw();
+        }
+
+        requestAnimationFrame(() => {
+            update();
+            draw();
+        });
+    };
+
+    // --- GAME END & FIREBASE ---
+    const gameOver = async () => {
+        gameState = 'GAMEOVER';
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('game-over-screen').classList.remove('hidden');
+
+        if (useFirebase && user) {
+            await saveScoreToDb(score);
+            await loadLeaderboard();
+        } else {
+            document.getElementById('leaderboard-list').innerHTML = `<li class="text-center text-sm text-gray-400 py-2">🎮 本地单机模式<br>记录不保存至云端</li>`;
+        }
+    };
+
+    const authInit = async () => {
+        if (!useFirebase) return;
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                const res = await auth.signInWithCustomToken(__initial_auth_token);
+                user = res.user;
+            } else {
+                const res = await auth.signInAnonymously();
+                user = res.user;
+            }
+        } catch (error) {
+            console.error("Auth failed:", error);
+        }
+    };
+
+    const saveScoreToDb = async (newScore) => {
+        if (!useFirebase || !user) return;
+        const ref = db.doc(`artifacts/${appId}/public/data/leaderboard/${user.uid}`);
+        try {
+            const snap = await ref.get();
+            if (!snap.exists || snap.data().score < newScore) {
+                await ref.set({
+                    userId: user.uid,
+                    score: newScore,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        } catch (e) {
+            console.error("Save score error:", e);
+        }
+    };
+
+    const loadLeaderboard = async () => {
+        const listEl = document.getElementById('leaderboard-list');
+        if (!useFirebase) return;
+        
+        try {
+            const snapshot = await db.collection(`artifacts/${appId}/public/data/leaderboard`).get();
+            const data = snapshot.docs.map(doc => doc.data())
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5);
+
+            if (data.length === 0) {
+                listEl.innerHTML = `<li class="text-center text-sm text-gray-400">暂无数据，抢占第一！</li>`;
+                return;
+            }
+
+            const medals = ['🥇', '🥈', '🥉', '🏅', '🏅'];
+            listEl.innerHTML = data.map((item, index) => `
+                <li class="flex justify-between items-center py-1 ${item.userId === user?.uid ? 'text-yellow-400 font-bold border-b border-yellow-400/30' : 'border-b border-white/5'}">
+                    <span class="flex items-center gap-2">
+                        <span class="text-xl">${medals[index]}</span>
+                        <span class="font-mono">${item.userId.substring(0, 5)}</span>
+                    </span>
+                    <span class="font-black text-lg">${item.score} <span class="text-xs font-normal">m</span></span>
+                </li>
+            `).join('');
+        } catch (error) {
+            listEl.innerHTML = `<li class="text-red-400 text-center text-sm">排行榜加载失败</li>`;
+        }
+    };
+
+    // --- INPUT CONTROLS ---
+    const handlePointerDown = (clientX) => {
+        if (gameState !== 'PLAYING') return;
+        if (clientX < width / 2) {
+            input.left = true;
+            input.right = false;
+        } else {
+            input.right = true;
+            input.left = false;
+        }
+    };
+
+    const handlePointerUp = () => {
+        input.left = false;
+        input.right = false;
+    };
+
+    const startBtn = document.getElementById('start-btn');
+    startBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); 
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('touch-hints').style.opacity = '0.2';
+        gameState = 'PLAYING';
+        initGame();
+    });
+
+    const restartBtn = document.getElementById('restart-btn');
+    restartBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('app-container').style.backgroundColor = '#5c94fc'; 
+        gameState = 'PLAYING';
+        initGame();
+    });
+
+    container.addEventListener('touchstart', (e) => {
+        if(e.target === startBtn || e.target === restartBtn) return;
+        e.preventDefault(); 
+        handlePointerDown(e.touches[0].clientX);
+    }, { passive: false });
+    
+    container.addEventListener('touchend', (e) => {
+        if(e.target === startBtn || e.target === restartBtn) return;
+        e.preventDefault();
+        if (e.touches.length > 0) {
+            handlePointerDown(e.touches[0].clientX);
+        } else {
+            handlePointerUp();
+        }
+    }, { passive: false });
+
+    container.addEventListener('touchmove', (e) => {
+        if(e.target === startBtn || e.target === restartBtn) return;
+        e.preventDefault();
+        handlePointerDown(e.touches[0].clientX); 
+    }, { passive: false });
+
+    container.addEventListener('mousedown', (e) => {
+        if(e.target === startBtn || e.target === restartBtn) return;
+        handlePointerDown(e.clientX)
+    });
+    container.addEventListener('mouseup', handlePointerUp);
+    container.addEventListener('mouseleave', handlePointerUp);
+    
+    window.addEventListener('keydown', (e) => {
+        if(e.code === 'ArrowLeft') input.left = true;
+        if(e.code === 'ArrowRight') input.right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+        if(e.code === 'ArrowLeft') input.left = false;
+        if(e.code === 'ArrowRight') input.right = false;
+    });
+
+    // --- BOOTSTRAP ---
+    window.onload = async () => {
+        draw(); 
+        await authInit();
+    };
+
+</script>
+</body>
+</html>
