@@ -1,0 +1,336 @@
+/* region 1. 全局样式及动画 (Global Styles & Animations) */
+:root {
+    --primary-color: #2c3e50;
+    --bg-color: #f4f4f0;
+    --accent-color: #8b0000;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: "Songti SC", "SimSun", serif;
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    min-height: 100vh;
+}
+
+#app {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100vh;
+    margin: 0 auto;
+    position: relative; /* 核心：让内部的 absolute 元素以此为基准 */
+    padding: 20px;
+    box-sizing: border-box;
+    background-image: linear-gradient(to bottom, #ffffff, #e9e9e5);
+    overflow-x: hidden;
+}
+
+.back-btn {
+    display: inline-block;
+    text-decoration: none;
+    color: var(--primary-color);
+    font-weight: bold;
+    margin-bottom: 20px;
+    font-size: 1rem;
+}
+
+.content-container {
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+/* endregion */
+
+/* region 2. 全局组件：背景音乐按钮 */
+.bgm-btn {
+    position: absolute; /* 改为 absolute，相对于 #app 定位 */
+    top: 20px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid var(--primary-color);
+    border-radius: 50%;
+    text-align: center;
+    line-height: 34px;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    user-select: none;
+}
+
+.bgm-btn.playing { animation: spin 4s linear infinite; }
+.bgm-btn.paused { opacity: 0.5; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+/* endregion */
+
+/* region 3. 首页专属样式 (#page-index) */
+#page-index {
+    background: radial-gradient(circle at center, #ffffff 0%, #f0f0e8 100%);
+}
+#page-index .header {
+    text-align: center;
+    margin-top: 6vh;
+    margin-bottom: 3vh;
+    animation: fadeInDown 1s ease;
+}
+#page-index h1 {
+    font-size: 2.8rem;
+    letter-spacing: 5px;
+    margin: 0;
+    position: relative;
+    display: inline-block;
+}
+.seal {
+    position: absolute;
+    top: -5px;
+    right: -40px;
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    border: 2px solid var(--accent-color);
+    padding: 2px 4px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    transform: rotate(-10deg);
+    font-weight: bold;
+    opacity: 0.8;
+}
+.hero {
+    text-align: center;
+    margin-bottom: 5vh;
+    animation: fadeIn 1.5s ease;
+}
+.hero-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 15px;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238b0000"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>') no-repeat center center;
+    background-size: contain;
+    opacity: 0.5;
+}
+.hero-poem {
+    font-size: 1.1rem;
+    color: #555;
+    line-height: 1.8;
+    letter-spacing: 3px;
+    font-family: "Kaiti", "STKaiti", serif;
+}
+#page-index .nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 85%;
+    margin: 0 auto;
+}
+#page-index .nav-btn {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.7);
+    border: none;
+    border-left: 4px solid var(--accent-color);
+    padding: 15px 20px;
+    border-radius: 6px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.8s ease forwards;
+    opacity: 0;
+}
+#page-index .nav-btn:nth-child(1) { animation-delay: 0.2s; }
+#page-index .nav-btn:nth-child(2) { animation-delay: 0.4s; }
+#page-index .nav-btn:nth-child(3) { animation-delay: 0.6s; }
+
+#page-index .nav-btn:hover, #page-index .nav-btn:active {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    background: #fff;
+}
+.btn-left {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--accent-color);
+    margin-right: 20px;
+    opacity: 0.7;
+}
+.btn-right {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+.btn-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+.btn-sub {
+    font-size: 0.8rem;
+    color: #888;
+}
+.footer {
+    margin-top: auto;
+    text-align: center;
+    padding-top: 5vh;
+    padding-bottom: 2vh;
+    font-size: 0.75rem;
+    color: #aaa;
+    letter-spacing: 1px;
+}
+/* endregion */
+
+/* region 4. 答题页专属样式 (#page-quiz) */
+#page-quiz h2 {
+    text-align: center;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+}
+.action-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    margin-top: 20px;
+}
+/* endregion */
+
+/* region 5. 科普长卷页专属样式 (#page-history) */
+#page-history h2 {
+    text-align: center;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+.history-intro {
+    font-size: 0.95rem;
+    color: #555;
+    text-align: justify;
+    margin-bottom: 25px;
+    line-height: 1.6;
+}
+.timeline {
+    position: relative;
+    padding-left: 20px;
+}
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 2px;
+    background: #ccc;
+}
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+}
+.timeline-dot {
+    position: absolute;
+    top: 5px;
+    left: -20px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    box-shadow: 0 0 5px rgba(139,0,0,0.5);
+}
+.timeline-content h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    color: var(--primary-color);
+}
+.timeline-content p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #444;
+    line-height: 1.5;
+    text-align: justify;
+}
+/* endregion */
+
+/* region 6. 音乐页专属样式 (#page-music) */
+#page-music h2 {
+    text-align: center;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+}
+.guqin-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.guqin-logo {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    border: 2px solid var(--primary-color);
+    margin: 30px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.5);
+}
+.guqin-logo.playing {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    animation: breathe 2s infinite ease-in-out;
+}
+@keyframes breathe {
+    0% { box-shadow: 0 0 5px rgba(139, 0, 0, 0.2); transform: scale(1); }
+    50% { box-shadow: 0 0 25px rgba(139, 0, 0, 0.6); transform: scale(1.05); }
+    100% { box-shadow: 0 0 5px rgba(139, 0, 0, 0.2); transform: scale(1); }
+}
+.music-info {
+    text-align: center;
+    margin-bottom: 30px;
+    min-height: 60px;
+}
+#music-status {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin: 0 0 8px 0;
+    color: var(--primary-color);
+}
+#music-desc {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+}
+.track-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+}
+.track-btn {
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid var(--primary-color);
+    background: transparent;
+    color: var(--primary-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.track-btn.active {
+    background: var(--primary-color);
+    color: var(--bg-color);
+}
+/* endregion */
